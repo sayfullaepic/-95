@@ -1,0 +1,132 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Уклоняйся+ от ТвоёИмя</title>
+<style>
+    body { text-align:center; font-family: sans-serif; background: #111; color: #fff; }
+    canvas { background: #222; display:block; margin: 20px auto; border-radius: 10px; }
+    #skinSelect { margin: 10px auto; }
+    .skin-btn {
+        width: 50px; height: 50px; border: none; margin: 5px; border-radius: 8px;
+        cursor: pointer; font-size: 24px; transition: transform 0.2s;
+    }
+    .skin-btn:hover { transform: scale(1.2); }
+</style>
+</head>
+<body>
+<h2 id="highScoreDisplay">Рекорд: 0</h2>
+<div id="skinSelect"></div>
+<canvas id="gameCanvas" width="400" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let player = { x: 180, y: 550, size: 40, speed: 5 };
+let obstacles = [];
+let score = 0;
+let gameOver = false;
+
+let highScore = localStorage.getItem('highScore') || 0;
+document.getElementById('highScoreDisplay').innerText = `Рекорд: ${highScore}`;
+
+// Скины
+let unlockedSkins = JSON.parse(localStorage.getItem('unlockedSkins')) || ['blue'];
+let currentSkin = localStorage.getItem('currentSkin') || 'blue';
+
+const skins = {
+    blue: { color:'blue', icon:'🔷' },
+    red: { color:'red', icon:'❤️' },
+    yellow: { color:'yellow', icon:'⚪' },
+    cat: { color:'orange', icon:'🐱' }
+};
+
+// Генерация кнопок выбора скинов
+function renderSkinButtons() {
+    const div = document.getElementById('skinSelect');
+    div.innerHTML = '';
+    unlockedSkins.forEach(skin => {
+        const btn = document.createElement('button');
+        btn.className = 'skin-btn';
+        btn.innerText = skins[skin].icon;
+        btn.style.background = skins[skin].color;
+        btn.onclick = () => chooseSkin(skin);
+        div.appendChild(btn);
+    });
+}
+renderSkinButtons();
+
+function chooseSkin(skin) {
+    currentSkin = skin;
+    localStorage.setItem('currentSkin', skin);
+}
+
+// Обновление рекорда
+function updateScore() {
+    score++;
+    if(score > highScore) {
+        highScore = score;
+        localStorage.setItem('highScore', highScore);
+        unlockSkins(highScore);
+        renderSkinButtons();
+    }
+    document.getElementById('highScoreDisplay').innerText = `Рекорд: ${highScore}`;
+}
+
+// Разблокировка скинов
+function unlockSkins(score) {
+    if(score >= 10 && !unlockedSkins.includes('red')) unlockedSkins.push('red');
+    if(score >= 20 && !unlockedSkins.includes('yellow')) unlockedSkins.push('yellow');
+    if(score >= 30 && !unlockedSkins.includes('cat')) unlockedSkins.push('cat');
+    localStorage.setItem('unlockedSkins', JSON.stringify(unlockedSkins));
+}
+
+// Игровой цикл
+function gameLoop() {
+    if(gameOver) return;
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // Игрок
+    ctx.fillStyle = skins[currentSkin].color;
+    ctx.fillRect(player.x, player.y, player.size, player.size);
+
+    // Управление
+    document.onkeydown = e => {
+        if(e.key === 'ArrowLeft' || e.key === 'a') player.x -= player.speed;
+        if(e.key === 'ArrowRight' || e.key === 'd') player.x += player.speed;
+        player.x = Math.max(0, Math.min(canvas.width - player.size, player.x));
+    };
+
+    // Препятствия
+    if(Math.random() < 0.02) obstacles.push({ x: Math.random()*360, y: 0, size: 40 });
+    obstacles.forEach((obs, i) => {
+        obs.y += 3;
+        ctx.fillStyle = 'white';
+        ctx.fillRect(obs.x, obs.y, obs.size, obs.size);
+
+        // Проверка столкновения
+        if(obs.x < player.x + player.size && obs.x + obs.size > player.x &&
+           obs.y < player.y + player.size && obs.y + obs.size > player.y) {
+            gameOver = true;
+            alert('Игра окончена! Ваш счет: ' + score);
+            score = 0;
+            obstacles = [];
+            gameOver = false;
+        }
+
+        if(obs.y > canvas.height) {
+            obstacles.splice(i,1);
+            updateScore();
+        }
+    });
+
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
